@@ -106,8 +106,135 @@
 // }
 
 
+// 'use client';
+// import { createContext, useContext, useState } from "react";
+// import { useRouter } from "next/navigation";
+// import { products } from "../lib/assets";
+// import { toast } from "react-hot-toast";
+
+// export const ShopContext = createContext();
+
+// export function ShopContextProvider({ children }) {
+//     const currency = '$';
+//     const delivery_fee = 10;
+//     const router = useRouter();
+
+//     const [search, setSearch] = useState('');
+//     const [showSearch, setShowSearch] = useState(false);
+//     const [cartItems, setCartItems] = useState({});
+
+//     // 🟦 NEW — user and token state
+//     const [user, setUser] = useState(null);
+//     const [token, setToken] = useState(null);
+
+//     const navigate = (path) => {
+//         router.push(path);
+//     };
+
+//     // 🟦 NEW — logout function
+//     const logout = () => {
+//         setUser(null);
+//         setToken(null);
+//         navigate('/');
+//         toast.success("Logged out successfully");
+//     };
+
+//     // ---------------- CART FUNCTIONS ----------------
+
+//     const addToCart = (itemId, size) => {
+//         if (!size) {
+//             toast.error('Select product size');
+//             return;
+//         }
+
+//         let cartData = structuredClone(cartItems);
+
+//         if (cartData[itemId]) {
+//             if (cartData[itemId][size]) {
+//                 cartData[itemId][size] += 1;
+//             } else {
+//                 cartData[itemId][size] = 1;
+//             }
+//         } else {
+//             cartData[itemId] = {};
+//             cartData[itemId][size] = 1;
+//         }
+
+//         setCartItems(cartData);
+//     };
+
+//     const updateQuantity = (itemId, size, quantity) => {
+//         let cartData = structuredClone(cartItems);
+//         cartData[itemId][size] = quantity;
+//         setCartItems(cartData);
+//     };
+
+//     const getCartCount = () => {
+//         let totalCount = 0;
+//         for (const items in cartItems) {
+//             for (const item in cartItems[items]) {
+//                 try {
+//                     if (cartItems[items][item] > 0) {
+//                         totalCount += cartItems[items][item];
+//                     }
+//                 } catch (error) { }
+//             }
+//         }
+//         return totalCount;
+//     };
+
+//     const getCartAmount = () => {
+//         let totalAmount = 0;
+//         for (const items in cartItems) {
+//             let itemInfo = products.find((product) => product._id === items);
+//             for (const item in cartItems[items]) {
+//                 try {
+//                     if (cartItems[items][item] > 0) {
+//                         totalAmount += itemInfo.price * cartItems[items][item];
+//                     }
+//                 } catch (error) { }
+//             }
+//         }
+//         return totalAmount;
+//     };
+
+//     // ---------------- CONTEXT VALUE ----------------
+//     const value = {
+//         currency, delivery_fee,
+//         navigate,
+//         products,
+
+//         search, setSearch,
+//         showSearch, setShowSearch,
+
+//         cartItems,
+//         addToCart, updateQuantity,
+//         getCartCount, getCartAmount,
+
+//         // 🟦 ADD user + token + logout
+//         user, setUser,
+//         token, setToken,
+//         logout,
+//     };
+
+//     return (
+//         <ShopContext.Provider value={value}>
+//             {children}
+//         </ShopContext.Provider>
+//     );
+// }
+
+// export function useShop() {
+//     const context = useContext(ShopContext);
+//     if (!context) {
+//         throw new Error('useShop must be used within ShopContextProvider');
+//     }
+//     return context;
+// }
+
 'use client';
-import { createContext, useContext, useState } from "react";
+
+import { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { products } from "../lib/assets";
 import { toast } from "react-hot-toast";
@@ -123,42 +250,37 @@ export function ShopContextProvider({ children }) {
     const [showSearch, setShowSearch] = useState(false);
     const [cartItems, setCartItems] = useState({});
 
-    // 🟦 NEW — user and token state
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
 
-    const navigate = (path) => {
-        router.push(path);
-    };
+    const navigate = (path) => router.push(path);
 
-    // 🟦 NEW — logout function
     const logout = () => {
         setUser(null);
         setToken(null);
-        navigate('/');
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
         toast.success("Logged out successfully");
+        navigate('/');
     };
 
-    // ---------------- CART FUNCTIONS ----------------
+    // Fix: Auto load saved user from storage
+    useEffect(() => {
+        const savedUser = localStorage.getItem("user");
+        const savedToken = localStorage.getItem("token");
+
+        if (savedUser && savedToken) {
+            setUser(JSON.parse(savedUser));
+            setToken(savedToken);
+        }
+    }, []);
 
     const addToCart = (itemId, size) => {
-        if (!size) {
-            toast.error('Select product size');
-            return;
-        }
+        if (!size) return toast.error('Select product size');
 
         let cartData = structuredClone(cartItems);
-
-        if (cartData[itemId]) {
-            if (cartData[itemId][size]) {
-                cartData[itemId][size] += 1;
-            } else {
-                cartData[itemId][size] = 1;
-            }
-        } else {
-            cartData[itemId] = {};
-            cartData[itemId][size] = 1;
-        }
+        cartData[itemId] = cartData[itemId] || {};
+        cartData[itemId][size] = (cartData[itemId][size] || 0) + 1;
 
         setCartItems(cartData);
     };
@@ -171,63 +293,38 @@ export function ShopContextProvider({ children }) {
 
     const getCartCount = () => {
         let totalCount = 0;
-        for (const items in cartItems) {
-            for (const item in cartItems[items]) {
-                try {
-                    if (cartItems[items][item] > 0) {
-                        totalCount += cartItems[items][item];
-                    }
-                } catch (error) { }
-            }
-        }
+        Object.values(cartItems).forEach(sizes => {
+            Object.values(sizes).forEach(qty => totalCount += qty);
+        });
         return totalCount;
     };
 
     const getCartAmount = () => {
-        let totalAmount = 0;
-        for (const items in cartItems) {
-            let itemInfo = products.find((product) => product._id === items);
-            for (const item in cartItems[items]) {
-                try {
-                    if (cartItems[items][item] > 0) {
-                        totalAmount += itemInfo.price * cartItems[items][item];
-                    }
-                } catch (error) { }
+        let total = 0;
+        for (const item in cartItems) {
+            const product = products.find(p => p._id === item);
+            for (const size in cartItems[item]) {
+                total += product.price * cartItems[item][size];
             }
         }
-        return totalAmount;
+        return total;
     };
 
-    // ---------------- CONTEXT VALUE ----------------
     const value = {
-        currency, delivery_fee,
-        navigate,
-        products,
-
+        currency, delivery_fee, products,
         search, setSearch,
         showSearch, setShowSearch,
-
-        cartItems,
+        navigate, cartItems,
         addToCart, updateQuantity,
         getCartCount, getCartAmount,
-
-        // 🟦 ADD user + token + logout
-        user, setUser,
-        token, setToken,
-        logout,
+        user, setUser, token, setToken, logout,
     };
 
-    return (
-        <ShopContext.Provider value={value}>
-            {children}
-        </ShopContext.Provider>
-    );
+    return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
 }
 
 export function useShop() {
     const context = useContext(ShopContext);
-    if (!context) {
-        throw new Error('useShop must be used within ShopContextProvider');
-    }
+    if (!context) throw new Error('useShop must be used within ShopContextProvider');
     return context;
 }

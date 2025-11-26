@@ -189,6 +189,135 @@
 //     );
 // }
 
+// 'use client';
+
+// import { useState } from "react";
+// import { useRouter } from "next/navigation";
+// import apiRoutes from "@/common/constants/apiRoutes";
+// import { apiRequest } from "@/common/api/apiService";
+// import { showError, showSuccess } from "@/common/toast/toastService";
+// import { loginSuccess } from "@/common/store/auth/authSlice";
+// // 🔥 Redux
+// import { useDispatch } from "react-redux";
+
+// export default function Login() {
+//     const [currentState, setCurrentState] = useState("Login");
+//     const [loading, setLoading] = useState(false);
+
+//     const dispatch = useDispatch();
+//     const router = useRouter();
+
+//     const onSubmitHandler = async (e) => {
+//         e.preventDefault();
+//         setLoading(true);
+
+//         const email = e.target.email.value;
+//         const password = e.target.password.value;
+
+//         try {
+//             // SIGN UP
+//             if (currentState === "Sign Up") {
+//                 const name = e.target.name.value;
+//                 const mobile = e.target.mobile.value;
+
+//                 const res = await apiRequest(apiRoutes.userRegister, "POST", {
+//                     name, email, mobile, password
+//                 });
+
+//                 if (!res?.response) throw new Error("Registration failed");
+
+//                 showSuccess("Registration successful!");
+
+//                 // Clear form
+//                 e.target.reset();
+
+//                 // Switch to Login
+//                 setCurrentState("Login");
+//                 return;
+//             }
+
+//             // LOGIN
+//             const res = await apiRequest(apiRoutes.userLogin, "POST", {
+//                 username: email,
+//                 password
+//             });
+
+//             if (!res?.data) throw new Error("Invalid credentials");
+
+//             const userData = res.data;
+
+//             // 🔥 Save to Redux
+//             dispatch(loginSuccess({
+//                 token: userData.token,
+//                 user: {
+//                     name: userData.name,
+//                     email: userData.email,
+//                     mobile: userData.mobile
+//                 }
+//             }));
+
+//             // 🔥 Save in localStorage for persistence
+//             localStorage.setItem("token", userData.token);
+//             localStorage.setItem("user", JSON.stringify({
+//                 name: userData.name,
+//                 email: userData.email,
+//                 mobile: userData.mobile
+//             }));
+
+//             showSuccess("Login successful!");
+//             router.push("/");
+
+//         } catch (err) {
+//             showError(err.message || "Something went wrong");
+//         } finally {
+//             setLoading(false);
+//         }
+//     };
+
+//     return (
+//         <form 
+//             onSubmit={onSubmitHandler} 
+//             className="flex flex-col items-center w-[90%] sm:max-w-96 m-auto mt-14 gap-4 text-gray-800"
+//         >
+//             <div className="inline-flex items-center gap-2 mb-2 mt-10">
+//                 <p className="text-3xl font-serif">{currentState}</p>
+//                 <hr className="border-none h-[1.5px] w-8 bg-gray-800" />
+//             </div>
+
+//             {currentState === "Sign Up" && (
+//                 <>
+//                     <input name="name" className="w-full px-3 py-2 border border-gray-800" placeholder="Name" required />
+//                     <input name="mobile" className="w-full px-3 py-2 border border-gray-800" placeholder="Mobile" required />
+//                 </>
+//             )}
+
+//             <input name="email" className="w-full px-3 py-2 border border-gray-800" placeholder="Email / Username" required />
+//             <input name="password" className="w-full px-3 py-2 border border-gray-800" type="password" placeholder="Password" required />
+
+//             <div className="w-full flex justify-between text-sm mt-[-8px]">
+//                 {currentState === "Login" ? <p>Not registered yet?</p> : <p>Already signed up?</p>}
+//                 <p 
+//                     onClick={() => setCurrentState(currentState === "Login" ? "Sign Up" : "Login")} 
+//                     className="cursor-pointer"
+//                 >
+//                     {currentState === "Login" ? "Create account" : "Login here"}
+//                 </p>
+//             </div>
+
+//             <button 
+//                 type="submit"
+//                 disabled={loading}
+//                 className="bg-black text-white font-light px-8 py-2 mt-4"
+//             >
+//                 {loading 
+//                     ? currentState === "Login" ? "Signing in..." : "Signing up..."
+//                     : currentState === "Login" ? "Sign in" : "Sign up"
+//                 }
+//             </button>
+//         </form>
+//     );
+// }
+
 'use client';
 
 import { useState } from "react";
@@ -197,8 +326,8 @@ import apiRoutes from "@/common/constants/apiRoutes";
 import { apiRequest } from "@/common/api/apiService";
 import { showError, showSuccess } from "@/common/toast/toastService";
 import { loginSuccess } from "@/common/store/auth/authSlice";
-// 🔥 Redux
 import { useDispatch } from "react-redux";
+import { useShop } from "@/context/ShopContext"; // ⬅ Added
 
 export default function Login() {
     const [currentState, setCurrentState] = useState("Login");
@@ -206,6 +335,7 @@ export default function Login() {
 
     const dispatch = useDispatch();
     const router = useRouter();
+    const { setUser, setToken } = useShop(); // ⬅ Added
 
     const onSubmitHandler = async (e) => {
         e.preventDefault();
@@ -228,10 +358,7 @@ export default function Login() {
 
                 showSuccess("Registration successful!");
 
-                // Clear form
                 e.target.reset();
-
-                // Switch to Login
                 setCurrentState("Login");
                 return;
             }
@@ -246,7 +373,7 @@ export default function Login() {
 
             const userData = res.data;
 
-            // 🔥 Save to Redux
+            // Save to Redux
             dispatch(loginSuccess({
                 token: userData.token,
                 user: {
@@ -256,7 +383,15 @@ export default function Login() {
                 }
             }));
 
-            // 🔥 Save in localStorage for persistence
+            // ⬅ NEW: Update context (so Navbar updates instantly)
+            setUser({
+                name: userData.name,
+                email: userData.email,
+                mobile: userData.mobile
+            });
+            setToken(userData.token);
+
+            // LocalStorage for persistence
             localStorage.setItem("token", userData.token);
             localStorage.setItem("user", JSON.stringify({
                 name: userData.name,
@@ -317,4 +452,3 @@ export default function Login() {
         </form>
     );
 }
-
